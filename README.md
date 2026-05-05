@@ -23,6 +23,24 @@ MediaMTX ─► Playwright (Chromium headless + Xvfb)
           └─────────────────────────────┘
 ```
 
+### Estructura de archivos
+
+```
+frame_capture.py          ← punto de entrada (Docker / pm2)
+drone_config.py           ← configuración y lista de drones
+channel_store.py          ← ChannelStore + registro global
+drone_worker.py           ← loop Playwright por drone + watchdog
+js_scripts.py             ← snippets JS inyectados en la página
+utils.py                  ← configuración de logging
+healthcheck.py            ← script de healthcheck para Docker
+servers/
+  http_server.py          ← handlers HTTP + build_app()
+  ws_server.py            ← handler WebSocket
+  html_templates.py       ← template HTML del visor web
+static/
+  index.html              ← visor web (servido en /static/index.html)
+```
+
 ---
 
 ## Drones configurados (por defecto)
@@ -34,8 +52,8 @@ MediaMTX ─► Playwright (Chromium headless + Xvfb)
 | DC1003  | …/DCI003                    |
 
 Las URLs completas (con credenciales) están definidas como valores por defecto
-en `main.py` y en `docker-compose.yml`, y se pueden sobreescribir con variables
-de entorno (ver `.env.example`).
+en `drone_config.py` y se pueden sobreescribir con variables de entorno
+(ver `.env.example`).
 
 ---
 
@@ -57,7 +75,7 @@ export DISPLAY=:99
 cp .env.example .env
 
 # 4. Ejecutar
-python main.py
+python frame_capture.py
 ```
 
 Abre <http://localhost:8080> en tu navegador.
@@ -96,7 +114,10 @@ Consulta `.env.example` para la lista completa.  Las más importantes:
 
 ## SSL / HTTPS / WSS
 
-Para habilitar HTTPS y WSS basta con proveer los paths de certificado y clave:
+Para habilitar HTTPS y WSS basta con proveer los paths de certificado y clave
+mediante las variables `SSL_CERT` (ruta al certificado) y `SSL_KEY` (ruta a la
+clave privada).  Los nombres de archivo recomendados son `fullchain.crt` y
+`server.key`.
 
 ```bash
 # .env
@@ -112,19 +133,32 @@ openssl req -x509 -newkey rsa:4096 \
     -days 365 -nodes \
     -subj "/CN=localhost"
 
-SSL_CERT=$(pwd)/fullchain.crt SSL_KEY=$(pwd)/server.key python main.py
+SSL_CERT=$(pwd)/fullchain.crt SSL_KEY=$(pwd)/server.key python frame_capture.py
 ```
 
 ### Let's Encrypt / certbot (producción)
 
 ```bash
-# Paths típicos de certbot
+# Paths típicos de certbot (ajusta según tu dominio)
 SSL_CERT=/etc/letsencrypt/live/tu-dominio.com/fullchain.pem
 SSL_KEY=/etc/letsencrypt/live/tu-dominio.com/privkey.pem
 ```
 
-Con Docker Compose, monta los archivos como volumen y agrega las variables al
-bloque `environment` (ver comentarios en `docker-compose.yml`).
+### Con Docker Compose
+
+Monta los archivos de certificado como volumen y agrega las variables al bloque
+`environment`:
+
+```yaml
+services:
+  frame_a_frame:
+    volumes:
+      - /etc/ssl/drone/fullchain.crt:/certs/fullchain.crt:ro
+      - /etc/ssl/drone/server.key:/certs/server.key:ro
+    environment:
+      - SSL_CERT=/certs/fullchain.crt
+      - SSL_KEY=/certs/server.key
+```
 
 El visor web detecta automáticamente `https:` y usa `wss://` para el WebSocket.
 
