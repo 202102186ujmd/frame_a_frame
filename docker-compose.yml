@@ -1,0 +1,39 @@
+version: "3.9"
+
+services:
+  frame_a_frame:
+    build: .
+    image: frame_a_frame:latest
+    container_name: frame_a_frame
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-8080}:8080"
+    environment:
+      # Drone stream URLs – set via .env file (see .env.example)
+      - DRONE_DC1001_URL=${DRONE_DC1001_URL}
+      - DRONE_DC1002_URL=${DRONE_DC1002_URL}
+      - DRONE_DC1003_URL=${DRONE_DC1003_URL}
+      # Server
+      - HTTP_HOST=0.0.0.0
+      - HTTP_PORT=8080
+      # SSL (optional – provide paths inside the container)
+      - SSL_CERT=${SSL_CERT:-}
+      - SSL_KEY=${SSL_KEY:-}
+      # Capture
+      - CAPTURE_FPS=${CAPTURE_FPS:-1}
+      - CAPTURE_WIDTH=${CAPTURE_WIDTH:-1280}
+      - CAPTURE_HEIGHT=${CAPTURE_HEIGHT:-720}
+      - RECONNECT_DELAY=${RECONNECT_DELAY:-5}
+      - STALE_TIMEOUT=${STALE_TIMEOUT:-10}
+    # Mount SSL certs if you have them (adjust host paths as needed)
+    # volumes:
+    #   - /etc/ssl/drone/fullchain.crt:/certs/fullchain.crt:ro
+    #   - /etc/ssl/drone/server.key:/certs/server.key:ro
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://localhost:8080/health')"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    shm_size: "256m"
