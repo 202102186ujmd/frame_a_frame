@@ -28,8 +28,7 @@ log = logging.getLogger("frame_a_frame")
 # ---------------------------------------------------------------------------
 def _handle_console(drone_id: str, text: str) -> None:
     """Detect MediaMTX offline indicators in browser console messages."""
-    lower = text.lower()
-    if "stream not found" in lower or "error: stream not found, retrying" in lower:
+    if "stream not found" in text.lower():
         store = stores.get(drone_id)
         if store:
             store.update_state("offline", "stream not found")
